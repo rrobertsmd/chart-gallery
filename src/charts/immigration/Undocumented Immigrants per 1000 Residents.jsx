@@ -177,8 +177,15 @@ export default function UndocumentedPer1000() {
         <strong style={{ color: '#3a6a8a' }}>Sources:</strong> Pew Research Center (Aug 2025 revised), DHS OHSS, U.S. Census Bureau.
         The 2023 figure of 14M reflects Pew's revised methodology incorporating Census Bureau Vintage 2024 data.
       </div>
-      <div style={{ marginTop: 10, fontSize: 10, color: '#2a4a6a', lineHeight: 1.7, borderTop: '1px solid #0d2035', paddingTop: 10 }}>
-        <strong style={{ color: '#3a6a8a' }}>Methodology note:</strong> The 2023 figure of 14M reflects a retroactive statistical correction — the "record" was constructed in December 2024 looking backward, not measured live in 2023. The underlying immigration was real, but the magnitude of the spike is partly an artifact of underreporting over decades. The U.S. Census Bureau operates under the Executive Branch (Department of Commerce). The Vintage 2024 methodology change was made by career Census Bureau statisticians on December 19, 2024 — during the Biden administration, with Biden's Commerce Secretary Gina Raimondo overseeing the Department. No legislation was passed and no law was signed.
+      <div style={{
+        marginTop: 10, padding: '12px 14px',
+        background: '#091624', border: '1px solid #1a3050',
+        borderTop: '2px solid #5bb8ff', borderRadius: 8,
+      }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#5bb8ff', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Methodology Note</div>
+        <div style={{ fontSize: 11, color: '#7a9ab8', lineHeight: 1.7 }}>
+          The 2023 figure of 14M reflects a retroactive statistical correction — the "record" was constructed in December 2024 looking backward, not measured live in 2023. The underlying immigration was real, but the magnitude of the spike is partly an artifact of underreporting over decades. The U.S. Census Bureau operates under the Executive Branch (Department of Commerce). The Vintage 2024 methodology change was made by career Census Bureau statisticians on December 19, 2024 — during the Biden administration, with Biden's Commerce Secretary Gina Raimondo overseeing the Department. No legislation was passed and no law was signed.
+        </div>
       </div>
     </div>
   )
