@@ -1,3 +1,4 @@
+import { useState, useRef, useCallback } from 'react'
 import {
   ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer,
@@ -62,7 +63,37 @@ const data = rawData.map(d => {
 
 const C = { undoc: '#5bb8ff', gdp: '#4ade80', sp500: '#fbbf24' }
 
-const CustomTooltip = ({ active, payload, label }) => {
+// Pinned tooltip above chart — mobile only
+function PinnedTooltip({ entry }) {
+  if (!entry) return null
+  return (
+    <div style={{
+      background: '#0c1c2e', border: '1px solid #1e3a5a', borderRadius: 8,
+      padding: '10px 14px', fontFamily: "'IBM Plex Mono', monospace",
+      fontSize: 12, color: '#c8d8e8', marginBottom: 10,
+    }}>
+      <div style={{ color: '#7dd3fc', fontWeight: 700, marginBottom: 6, borderBottom: '1px solid #1e3a5a', paddingBottom: 4 }}>
+        {entry.year}
+      </div>
+      {[
+        { color: C.undoc, label: 'Undoc Rate', idx: entry.rateIdx, actual: `${entry.rate.toFixed(2)}/1k` },
+        { color: C.gdp,   label: 'US GDP',     idx: entry.gdpIdx,  actual: `$${entry.gdp.toFixed(2)}T` },
+        { color: C.sp500, label: 'S&P 500',    idx: entry.sp500Idx, actual: entry.sp500.toLocaleString() },
+      ].map(row => (
+        <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 3 }}>
+          <span style={{ color: row.color }}>● {row.label}</span>
+          <span>
+            <span style={{ color: '#fff', fontWeight: 600 }}>{row.idx}</span>
+            <span style={{ color: '#4a7a9a', fontSize: 10, marginLeft: 5 }}>idx · {row.actual}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Standard floating tooltip — desktop
+const FloatingTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   const d = data.find(x => x.year === label)
   if (!d) return null
@@ -93,12 +124,35 @@ const CustomTooltip = ({ active, payload, label }) => {
 }
 
 export default function ImmigrationGdpSp500() {
+  const isMobile = window.innerWidth < 768
+  const [touching, setTouching] = useState(false)
+  const [pinnedEntry, setPinnedEntry] = useState(null)
+  const timerRef = useRef(null)
+
+  const handleTouchMove = useCallback(() => {
+    clearTimeout(timerRef.current)
+    setTouching(true)
+    setPinnedEntry(null)
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    timerRef.current = setTimeout(() => setTouching(false), 300)
+  }, [])
+
+  const handleMouseMove = useCallback((state) => {
+    if (!isMobile) return
+    if (state?.activeLabel) {
+      const entry = data.find(x => x.year === state.activeLabel)
+      if (entry && !touching) setPinnedEntry(entry)
+    }
+  }, [isMobile, touching])
+
   return (
     <div style={{ padding: '28px 28px 8px', fontFamily: "'IBM Plex Sans', sans-serif" }}>
       {/* Indexing explainer */}
       <div style={{
         background: '#091624', border: '1px solid #1a3050', borderLeft: '3px solid #3b82f6',
-        borderRadius: 6, padding: '10px 14px', marginBottom: 20,
+        borderRadius: 6, padding: '10px 14px', marginBottom: 16,
         fontSize: 12, color: '#5a8ab0', lineHeight: 1.65,
       }}>
         <strong style={{ color: '#7dd3fc' }}>Why indexed?</strong> Each series starts at a different scale — GDP in trillions, S&P 500 in price points, immigration as a rate.
@@ -107,7 +161,7 @@ export default function ImmigrationGdpSp500() {
       </div>
 
       {/* Legend */}
-      <div style={{ display: 'flex', gap: 20, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
         {[['Undocumented rate /1k', C.undoc], ['US GDP', C.gdp], ['S&P 500', C.sp500]].map(([label, color]) => (
           <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: '#7a9ab8' }}>
             <span style={{ display: 'inline-block', width: 20, height: 2.5, background: color, borderRadius: 2 }} />
@@ -116,30 +170,46 @@ export default function ImmigrationGdpSp500() {
         ))}
       </div>
 
-      <ResponsiveContainer width="100%" height={360}>
-        <ComposedChart data={data} margin={{ top: 10, right: 20, bottom: 10, left: 10 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#0d2035" vertical={false} />
-          <XAxis dataKey="year"
-            tick={{ fill: '#4a7a9a', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
-            axisLine={{ stroke: '#1a3050' }} tickLine={false} interval={4} />
-          <YAxis
-            tick={{ fill: '#4a7a9a', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
-            axisLine={false} tickLine={false}
-            label={{ value: 'index (1985 = 100)', angle: -90, position: 'insideLeft', offset: 10, fill: '#2a5a7a', fontSize: 11 }}
-          />
-          <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#1e4a7a', strokeWidth: 1, strokeDasharray: '4 4' }} />
-          <ReferenceLine y={100} stroke="#1e3a5a" strokeDasharray="4 3" />
-          <Line type="monotone" dataKey="rateIdx"  stroke={C.undoc} strokeWidth={2.5} strokeDasharray="5 3"
-            dot={{ r: 3, fill: C.undoc, stroke: '#0c1c2e', strokeWidth: 1.5 }} activeDot={{ r: 5 }} />
-          <Line type="monotone" dataKey="gdpIdx"   stroke={C.gdp}   strokeWidth={2}   strokeDasharray="5 3"
-            dot={{ r: 3, fill: C.gdp, stroke: '#0c1c2e', strokeWidth: 1.5 }}   activeDot={{ r: 5 }} />
-          <Line type="monotone" dataKey="sp500Idx" stroke={C.sp500} strokeWidth={2}   strokeDasharray="5 3"
-            dot={{ r: 3, fill: C.sp500, stroke: '#0c1c2e', strokeWidth: 1.5 }} activeDot={{ r: 5 }} />
-        </ComposedChart>
-      </ResponsiveContainer>
+      {/* Pinned tooltip above chart — mobile only */}
+      {isMobile && <PinnedTooltip entry={pinnedEntry} />}
+
+      <div
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <ResponsiveContainer width="100%" height={isMobile ? 280 : 360}>
+          <ComposedChart
+            data={data}
+            margin={{ top: 10, right: 20, bottom: 10, left: 10 }}
+            onMouseMove={handleMouseMove}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#0d2035" vertical={false} />
+            <XAxis dataKey="year"
+              tick={{ fill: '#4a7a9a', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
+              axisLine={{ stroke: '#1a3050' }} tickLine={false} interval={4} />
+            <YAxis
+              tick={{ fill: '#4a7a9a', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
+              axisLine={false} tickLine={false}
+              label={{ value: 'index (1985 = 100)', angle: -90, position: 'insideLeft', offset: 10, fill: '#2a5a7a', fontSize: 11 }}
+            />
+            {/* Hide floating tooltip while sliding on mobile */}
+            <Tooltip
+              content={isMobile ? (touching ? () => null : <FloatingTooltip />) : <FloatingTooltip />}
+              cursor={{ stroke: '#1e4a7a', strokeWidth: 1, strokeDasharray: '4 4' }}
+            />
+            <ReferenceLine y={100} stroke="#1e3a5a" strokeDasharray="4 3" />
+            <Line type="monotone" dataKey="rateIdx"  stroke={C.undoc} strokeWidth={2.5} strokeDasharray="5 3"
+              dot={{ r: 3, fill: C.undoc, stroke: '#0c1c2e', strokeWidth: 1.5 }} activeDot={{ r: 5 }} />
+            <Line type="monotone" dataKey="gdpIdx"   stroke={C.gdp}   strokeWidth={2}   strokeDasharray="5 3"
+              dot={{ r: 3, fill: C.gdp, stroke: '#0c1c2e', strokeWidth: 1.5 }}   activeDot={{ r: 5 }} />
+            <Line type="monotone" dataKey="sp500Idx" stroke={C.sp500} strokeWidth={2}   strokeDasharray="5 3"
+              dot={{ r: 3, fill: C.sp500, stroke: '#0c1c2e', strokeWidth: 1.5 }} activeDot={{ r: 5 }} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
 
       {/* Insight cards */}
-      <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
         {[
           { title: '1990s Co-movement', body: 'All three series rose together through the dot-com boom. Immigration roughly tracked economic expansion.', color: C.undoc },
           { title: '2008 Divergence', body: 'GDP dipped briefly and S&P crashed 40%+, while immigration fell sharply as construction/service jobs evaporated.', color: C.sp500 },

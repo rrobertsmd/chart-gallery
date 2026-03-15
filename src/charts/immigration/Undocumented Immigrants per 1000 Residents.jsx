@@ -1,3 +1,4 @@
+import { useState, useRef, useCallback } from 'react'
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer,
@@ -58,7 +59,24 @@ const events = [
   { year: 2020, label: 'COVID-19' },
 ]
 
-const CustomTooltip = ({ active, payload, label }) => {
+// Pinned tooltip shown above chart on mobile
+function PinnedTooltip({ entry }) {
+  if (!entry) return null
+  return (
+    <div style={{
+      background: '#0c1c2e', border: '1px solid #1e3a5a', borderRadius: 8,
+      padding: '10px 14px', fontFamily: "'IBM Plex Mono', monospace",
+      fontSize: 13, color: '#c8d8e8', marginBottom: 10,
+    }}>
+      <span style={{ color: '#7dd3fc', fontWeight: 700, marginRight: 12 }}>{entry.year}</span>
+      <span style={{ color: '#5bb8ff' }}>● {entry.rate.toFixed(2)} per 1,000 residents</span>
+      <span style={{ color: '#4a7a9a', fontSize: 11, marginLeft: 10 }}>{entry.undoc}M undocumented</span>
+    </div>
+  )
+}
+
+// Standard floating tooltip for desktop
+const FloatingTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
   const d = data.find(x => x.year === label)
   if (!d) return null
@@ -76,47 +94,91 @@ const CustomTooltip = ({ active, payload, label }) => {
 }
 
 export default function UndocumentedPer1000() {
+  const isMobile = window.innerWidth < 768
+  const [touching, setTouching] = useState(false)
+  const [pinnedEntry, setPinnedEntry] = useState(null)
+  const timerRef = useRef(null)
+
+  const handleTouchMove = useCallback(() => {
+    clearTimeout(timerRef.current)
+    setTouching(true)
+    setPinnedEntry(null)
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    timerRef.current = setTimeout(() => setTouching(false), 300)
+  }, [])
+
+  // On mobile, capture the hovered data point for pinned display
+  const handleMouseMove = useCallback((state) => {
+    if (!isMobile) return
+    if (state?.activePayload?.[0]) {
+      const year = state.activeLabel
+      const entry = data.find(x => x.year === year)
+      if (entry && !touching) setPinnedEntry(entry)
+    }
+  }, [isMobile, touching])
+
   return (
     <div style={{ padding: '28px 28px 8px', fontFamily: "'IBM Plex Sans', sans-serif" }}>
-      <p style={{ fontSize: 13, color: '#5a8ab0', marginBottom: 20 }}>
+      <p style={{ fontSize: 13, color: '#5a8ab0', marginBottom: isMobile ? 10 : 20 }}>
         Dots mark actual Pew Research / DHS data points · connecting lines interpolated
       </p>
 
-      <ResponsiveContainer width="100%" height={380}>
-        <ComposedChart data={data} margin={{ top: 10, right: 20, bottom: 10, left: 10 }}>
-          <defs>
-            <linearGradient id="areaGrad1" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.25} />
-              <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.02} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#0d2035" vertical={false} />
-          <XAxis
-            dataKey="year"
-            tick={{ fill: '#4a7a9a', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
-            axisLine={{ stroke: '#1a3050' }} tickLine={false} interval={4}
-          />
-          <YAxis
-            tick={{ fill: '#4a7a9a', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
-            axisLine={false} tickLine={false} domain={[0, 50]}
-            label={{ value: 'per 1,000 residents', angle: -90, position: 'insideLeft', offset: 10, fill: '#2a5a7a', fontSize: 11 }}
-          />
-          <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#1e4a7a', strokeWidth: 1, strokeDasharray: '4 4' }} />
-          {events.map(e => (
-            <ReferenceLine key={e.year} x={e.year} stroke="#1e3a5a" strokeDasharray="4 3"
-              label={{ value: e.label, position: 'top', fill: '#3a6a8a', fontSize: 9.5 }} />
-          ))}
-          <Area type="monotone" dataKey="rate" fill="url(#areaGrad1)" stroke="none" />
-          <Line type="monotone" dataKey="rate" stroke="#5bb8ff" strokeWidth={2}
-            strokeDasharray="5 3"
-            dot={{ r: 3.5, fill: '#5bb8ff', stroke: '#0c1c2e', strokeWidth: 1.5 }}
-            activeDot={{ r: 5, fill: '#7dd3fc' }} />
-        </ComposedChart>
-      </ResponsiveContainer>
+      {/* Pinned tooltip above chart — mobile only */}
+      {isMobile && <PinnedTooltip entry={pinnedEntry} />}
 
-      <div style={{ marginTop: 12, fontSize: 10, color: '#2a4a6a', lineHeight: 1.6 }}>
+      <div
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <ResponsiveContainer width="100%" height={isMobile ? 300 : 380}>
+          <ComposedChart
+            data={data}
+            margin={{ top: 10, right: 20, bottom: 10, left: 10 }}
+            onMouseMove={handleMouseMove}
+          >
+            <defs>
+              <linearGradient id="areaGrad1" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.25} />
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#0d2035" vertical={false} />
+            <XAxis
+              dataKey="year"
+              tick={{ fill: '#4a7a9a', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
+              axisLine={{ stroke: '#1a3050' }} tickLine={false} interval={4}
+            />
+            <YAxis
+              tick={{ fill: '#4a7a9a', fontSize: 11, fontFamily: "'IBM Plex Mono', monospace" }}
+              axisLine={false} tickLine={false} domain={[0, 50]}
+              label={{ value: 'per 1,000 residents', angle: -90, position: 'insideLeft', offset: 10, fill: '#2a5a7a', fontSize: 11 }}
+            />
+            {/* Hide floating tooltip while touching on mobile */}
+            <Tooltip
+              content={isMobile ? (touching ? () => null : <FloatingTooltip />) : <FloatingTooltip />}
+              cursor={{ stroke: '#1e4a7a', strokeWidth: 1, strokeDasharray: '4 4' }}
+            />
+            {events.map(e => (
+              <ReferenceLine key={e.year} x={e.year} stroke="#1e3a5a" strokeDasharray="4 3"
+                label={{ value: e.label, position: 'top', fill: '#3a6a8a', fontSize: 9.5 }} />
+            ))}
+            <Area type="monotone" dataKey="rate" fill="url(#areaGrad1)" stroke="none" />
+            <Line type="monotone" dataKey="rate" stroke="#5bb8ff" strokeWidth={2}
+              strokeDasharray="5 3"
+              dot={{ r: 3.5, fill: '#5bb8ff', stroke: '#0c1c2e', strokeWidth: 1.5 }}
+              activeDot={{ r: 5, fill: '#7dd3fc' }} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div style={{ marginTop: 12, fontSize: 10, color: '#2a4a6a', lineHeight: 1.7 }}>
         <strong style={{ color: '#3a6a8a' }}>Sources:</strong> Pew Research Center (Aug 2025 revised), DHS OHSS, U.S. Census Bureau.
         The 2023 figure of 14M reflects Pew's revised methodology incorporating Census Bureau Vintage 2024 data.
+      </div>
+      <div style={{ marginTop: 10, fontSize: 10, color: '#2a4a6a', lineHeight: 1.7, borderTop: '1px solid #0d2035', paddingTop: 10 }}>
+        <strong style={{ color: '#3a6a8a' }}>Methodology note:</strong> The 2023 figure of 14M reflects a retroactive statistical correction — the "record" was constructed in December 2024 looking backward, not measured live in 2023. The underlying immigration was real, but the magnitude of the spike is partly an artifact of underreporting over decades. The U.S. Census Bureau operates under the Executive Branch (Department of Commerce). The Vintage 2024 methodology change was made by career Census Bureau statisticians on December 19, 2024 — during the Biden administration, with Biden's Commerce Secretary Gina Raimondo overseeing the Department. No legislation was passed and no law was signed.
       </div>
     </div>
   )
