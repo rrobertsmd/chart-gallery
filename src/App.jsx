@@ -291,10 +291,7 @@ export default function App() {
           {active ? (
             <>
               <ActiveComponent />
-              <div style={{ ...S.hint, margin: '0 16px 28px', fontSize: 11 }}>
-                <strong style={{ color: ACCENT }}>To add a chart:</strong>{' '}
-                Drop a <span style={S.code}>.jsx</span> into <span style={S.code}>src/charts/&lt;category&gt;/</span>
-              </div>
+            
             </>
           ) : (
             <div style={S.empty}>
@@ -343,11 +340,7 @@ export default function App() {
             </div>
             <div style={S.content}>
               <ActiveComponent />
-              <div style={S.hint}>
-                <strong style={{ color: ACCENT }}>To add or rename a chart</strong><br />
-                Drop any <span style={S.code}>.jsx</span> into <span style={S.code}>src/charts/&lt;category&gt;/</span> — the filename is the title.
-                Rename the file → title updates. Move it → category changes. No other edits needed.
-              </div>
+            
             </div>
           </>
         ) : (
