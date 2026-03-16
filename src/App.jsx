@@ -241,12 +241,67 @@ function MobileDrawer({ open, onClose, grouped, activeId, onSelect, search, setS
   )
 }
 
+// ── Share button ─────────────────────────────────────────────────
+function ShareButton({ chartId }) {
+  const [copied, setCopied] = useState(false)
+  function handleShare() {
+    const url = `${window.location.origin}${window.location.pathname}#${chartId}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+  return (
+    <button
+      onClick={handleShare}
+      title="Copy link to this chart"
+      style={{
+        background: copied ? '#0d2035' : 'transparent',
+        border: `1px solid ${copied ? ACCENT : BORDER}`,
+        borderRadius: 6, padding: '4px 10px',
+        fontSize: 11, fontWeight: 600,
+        color: copied ? ACCENT : TEXT_MID,
+        cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif",
+        display: 'flex', alignItems: 'center', gap: 5,
+        transition: 'all 0.15s', whiteSpace: 'nowrap',
+        marginLeft: 'auto', flexShrink: 0,
+      }}
+    >
+      {copied ? '✓ Copied!' : '⬡ Share'}
+    </button>
+  )
+}
+
 // ── Root ────────────────────────────────────────────────────────
 export default function App() {
   const isMobile = useIsMobile()
-  const [activeId, setActiveId] = useState(CHARTS[0]?.id ?? null)
+
+  // Read chart id from URL hash on load
+  const getInitialId = () => {
+    const hash = window.location.hash.slice(1)
+    if (hash && CHARTS.find(c => c.id === hash)) return hash
+    return CHARTS[0]?.id ?? null
+  }
+
+  const [activeId, setActiveId] = useState(getInitialId)
   const [search, setSearch] = useState('')
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  // Update URL hash when chart changes
+  function selectChart(id) {
+    setActiveId(id)
+    window.history.replaceState(null, '', `#${id}`)
+  }
+
+  // Handle browser back/forward
+  useEffect(() => {
+    const handler = () => {
+      const hash = window.location.hash.slice(1)
+      if (hash && CHARTS.find(c => c.id === hash)) setActiveId(hash)
+    }
+    window.addEventListener('hashchange', handler)
+    return () => window.removeEventListener('hashchange', handler)
+  }, [])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
@@ -290,8 +345,11 @@ export default function App() {
         <div style={{ flex: 1, overflow: 'auto' }}>
           {active ? (
             <>
+              {/* Share bar */}
+              <div style={{ display: 'flex', alignItems: 'center', padding: '8px 16px 0' }}>
+                <ShareButton chartId={activeId} />
+              </div>
               <ActiveComponent />
-            
             </>
           ) : (
             <div style={S.empty}>
@@ -305,7 +363,7 @@ export default function App() {
           onClose={() => setDrawerOpen(false)}
           grouped={grouped}
           activeId={activeId}
-          onSelect={setActiveId}
+          onSelect={selectChart}
           search={search}
           setSearch={setSearch}
         />
@@ -326,7 +384,7 @@ export default function App() {
         </div>
         <ChartList
           grouped={grouped} activeId={activeId}
-          onSelect={setActiveId}
+          onSelect={selectChart}
           search={search} setSearch={setSearch}
         />
       </aside>
@@ -337,10 +395,10 @@ export default function App() {
             <div style={S.topBar}>
               {activeCatMeta && <span style={S.catBadge(activeCatMeta.color)}>{activeCatMeta.label}</span>}
               <span style={S.topBarTitle}>{active.title}</span>
+              <ShareButton chartId={activeId} />
             </div>
             <div style={S.content}>
               <ActiveComponent />
-            
             </div>
           </>
         ) : (
